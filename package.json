@@ -1,0 +1,28 @@
+{
+  "//1": "describes your app and its dependencies",
+  "//2": "https://docs.npmjs.com/files/package.json",
+  "//3": "updating this file will download and update your packages",
+  "name": "spacemouseflycam",
+  "version": "0.2.0",
+  "description": "What am I about?",
+  "main": "server.js",
+  "scripts": {
+    "build": "",
+    "start": "tsc --watch"
+  },
+  "dependencies": {
+    "@types/node": "^7.10.0",
+    "typescript": "^2.3.0"
+  },
+  "engines": {},
+  "repository": {
+    "url": ""
+  },
+  "license": "MIT",
+  "keywords": [
+    "High Fidelity",
+    "3D Mouse",
+    "SpaceNavigator"
+  ],
+  "author": "Michael Bailey"
+}
