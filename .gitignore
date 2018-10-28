@@ -1,4 +1,5 @@
 #These keep .js and .js.map files out of view.
 *.js
 *.js.map
+scratch.md
 !hifi.signal.js
