@@ -1,5 +1,5 @@
-const Utility: any = Script.require("./Utility.js?" + Date.now());
-const SpacemouseInput = Script.require("./SpacemouseInput.js?" + Date.now());
+const libUtility: any = Script.require("./Utility.js?" + Date.now());
+const libSpacemouseInput = Script.require("./SpacemouseInput.js?" + Date.now());
 
 enum MessageType {
     Input,
@@ -10,19 +10,20 @@ enum MessageType {
 export = class FlycamController {
 
     // constants
+    private readonly EPSILON = 0.001;
     private readonly TRANSLATE_SPEED = 2;   // position speed multiplier
     private readonly ROTATE_SPEED = 5;      // rotate speed is slower
-    private readonly DELTA_TIME = 1 / 60;   // a pretend deltatime
+    // private readonly DELTA_TIME = 1 / 60;   // a pretend deltatime
     private readonly PITCH_MINIMUM = -80;   // clamp pitch up
     private readonly PITCH_MAXIMUM = 80;    // clamp pitch down
 
-    private input = new SpacemouseInput(true);
-    private utility = new Utility();
+    private input = new libSpacemouseInput(true);
+    private utility = new libUtility();
 
-    private isFirstMove: boolean = true;                // this will probably go away
-    private firstCameraMode: string = "third person";   // flycam off camera mode
-    private flycameraActive: boolean = false;           // fly camera is active
-    private audioFollows: boolean = false;
+    // private isFirstMove = true;                // this will probably go away
+    private firstCameraMode = "third person";   // flycam off camera mode
+    private flycameraActive = false;           // fly camera is active
+    private audioFollows = false;
     private messageChannel: string;
     private cameraEntityID: string;
     private inputTimer: any;
@@ -30,10 +31,10 @@ export = class FlycamController {
 
     private moveTime: number;
     private moveLength: number;
-    private lastPosition: any = { x: 0, y: 0, z: 0 };       // values from controller inpout
-    private lastRotation: any = { x: 0, y: 0, z: 0 };       // euler values from controller input
-    private currentPosition: any = { x: 0, y: 0, z: 0 };    // values from controller input
-    private currentRotation: any = { x: 0, y: 0, z: 0 };    // euler values from controller input
+    private startPosition: any = { x: 0, y: 0, z: 0 };       // values from controller inpout
+    private startRotation: any = { x: 0, y: 0, z: 0 };       // euler values from controller input
+    private targetPosition: any = { x: 0, y: 0, z: 0 };    // values from controller input
+    private targetRotation: any = { x: 0, y: 0, z: 0 };    // euler values from controller input
 
     constructor() {
         this.utility.isDebug = true;
@@ -45,7 +46,12 @@ export = class FlycamController {
         Script.scriptEnding.connect(this, "destroy");
     }
 
+    private updateTransform(): void {
+        return;
+    }
+
     private doVisibleCamera(doit: boolean): void {
+        // TODO: z in position should be -1?
         if (doit) {
             this.cameraEntityID = Entities.addEntity({
                 name: "FlyCamera",
@@ -60,7 +66,7 @@ export = class FlycamController {
             }, true);
         } else {
             Entities.deleteEntity(this.cameraEntityID);
-            this.cameraEntityID = Uuid.NULL
+            this.cameraEntityID = Uuid.NULL;
         }
     }
 
@@ -76,17 +82,13 @@ export = class FlycamController {
         });
     }
 
-    private onMessageReceived( channel: string, message: string, sender: string, localOnly: boolean): void {
+    private onMessageReceived(channel: string, message: string, sender: string, localOnly: boolean): void {
         // this.utility.debugLog("onMessageReceived: " + JSON.stringify(message));
         if (channel !== this.messageChannel) { return; }
 
         let messageObject = JSON.parse(message);
 
         switch (messageObject[0]) {
-            // case MessageType.Input: {
-            //    if (this.flycameraActive) { this.onInput(messageObject[1], messageObject[2]); }
-            //    break;
-            // }
             case MessageType.LeftButton: {
                 this.toggleFlyCam();
                 break;
@@ -102,12 +104,12 @@ export = class FlycamController {
     private interpolateCamera(): any {
         let distanceMoved: number = (Date.now() - this.moveTime) * this.TRANSLATE_SPEED;
         let fraction: number = distanceMoved / this.moveLength;
-        return this.utility.lerp(this.lastPosition, this.currentPosition, fraction);
+        return this.utility.lerp(this.startPosition, this.targetPosition, fraction);
     }
 
     private onInput(position: any, rotation: any): void {
-        this.currentPosition = Vec3.multiply(position, this.TRANSLATE_SPEED);
-        this.currentRotation = Vec3.multiply(rotation, this.ROTATE_SPEED);
+        this.targetPosition = Vec3.multiply(position, this.TRANSLATE_SPEED);
+        this.targetRotation = Vec3.multiply(rotation, this.ROTATE_SPEED);
 
         if (this.flycameraActive) { this.updateCamera(); }
     }
@@ -120,31 +122,30 @@ export = class FlycamController {
     private updateCamera(): void {
         // this.utility.debugLog("updateCamera fired");
         if (!this.flycameraActive) { return; }
-        let position = this.interpolateCamera();
-        this.move(position);
-        this.rotate(this.currentRotation);
+        this.move(this.interpolateCamera);
+        this.rotate(this.targetRotation);
         this.updateVisibleCamera();
     }
 
     private move(position: any): void {
         if (!this.flycameraActive) { return; }
-        this.currentPosition = Vec3.multiplyQbyV(Camera.orientation, this.currentPosition);
-        this.currentPosition = Vec3.sum(Camera.position, this.currentPosition);
-        Camera.setPosition(this.currentPosition);
-        // this.lastPosition = this.currentPosition;
-        this.currentPosition = Vec3.ZERO;
+        this.targetPosition = Vec3.multiplyQbyV(Camera.orientation, this.targetPosition);
+        this.targetPosition = Vec3.sum(Camera.position, this.targetPosition);
+        Camera.setPosition(this.targetPosition);
+        // this.lastPosition = this.targetPosition;
+        this.targetPosition = Vec3.ZERO;
     }
 
     private rotate(rotation: any): void {
         if (!this.flycameraActive) { return; }
 
-        this.currentRotation = Vec3.multiplyQbyV(Camera.orientation, this.currentRotation);
-        const orientation: any = Quat.multiply(Quat.fromVec3Degrees(this.currentRotation), Camera.orientation);
+        this.targetRotation = Vec3.multiplyQbyV(Camera.orientation, this.targetRotation);
+        const orientation: any = Quat.multiply(Quat.fromVec3Degrees(this.targetRotation), Camera.orientation);
         const cameraAngles: any = Quat.safeEulerAngles(Quat.cancelOutRoll(orientation));
         cameraAngles.x = this.utility.clamp(cameraAngles.x, this.PITCH_MINIMUM, this.PITCH_MAXIMUM);
         Camera.orientation = Quat.fromPitchYawRollDegrees(cameraAngles.x, cameraAngles.y, cameraAngles.z);
-        // this.lastRotation = this.currentRotation;
-        this.currentRotation = Vec3.ZERO;
+        // this.lastRotation = this.targetRotation;
+        this.targetRotation = Vec3.ZERO;
     }
 
     private toggleFlyCam(): void {
@@ -155,8 +156,8 @@ export = class FlycamController {
             Camera.setModeString(this.firstCameraMode);
             this.utility.debugLog(this.firstCameraMode);
             this.flycameraActive = false;
-            this.currentPosition = Vec3.ZERO;
-            this.currentRotation = Vec3.ZERO;
+            this.targetPosition = Vec3.ZERO;
+            this.targetRotation = Vec3.ZERO;
             this.audioFollowCamera(false);
             Script.clearInterval(this.inputTimer);
             this.utility.sleep(1000);
@@ -168,7 +169,7 @@ export = class FlycamController {
             this.flycameraActive = true;
             this.utility.sleep(1000);
             this.audioFollowCamera(true);
-            this.inputTimer = Script.setInterval(() => this.onInput(this.input.getPosition, this.input.getRotation), 33);
+            this.inputTimer = Script.setInterval(() => this.onInput(this.input.PositionDelta, this.input.RotationDelta), 33);
         }
         Messages.messageReceived.connect(this, "onMessageReceived");
     }

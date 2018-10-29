@@ -1,4 +1,3 @@
-import { isNull } from "util";
 
 export = class Utility {
 

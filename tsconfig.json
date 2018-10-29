@@ -1,13 +1,26 @@
 {
     "compilerOptions": {
+        "pretty": true,
+        "lib": ["es2015"],
         "target": "es5",
-        "sourceMap":  true
-    },
-    "include": [
-        "**/*"
-    ],
-    "exclude": [
-        "node_modules",
-        "**/*.spec.ts"
-    ]
+        "rootDir": ".",
+
+        "declaration": false,
+        "sourceMap": true,
+        "noEmitOnError": true,
+
+        "strictNullChecks": true,
+        "noImplicitAny": true,
+        "noImplicitThis": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+
+        "skipLibCheck": true,
+
+        "alwaysStrict": true,
+        "preserveConstEnums": true,
+        "newLine": "lf",
+
+        "types": []
+    }
 }

@@ -1,5 +1,5 @@
 
-const Utility: any = Script.require("./Utility.js?" + Date.now());
+const libUtility: any = Script.require("./Utility.js?" + Date.now());
 
 enum MessageType {
     Input,
@@ -21,18 +21,17 @@ enum SpacemouseInputs {
 export = class SpacemouseInput {
 
     // private class properties
-    private utility: any = new Utility(); // various helper methods
-    // private signal: any = new signal();
+    private utility: any = new libUtility(); // various helper methods
     private messageChannel: string;
     private position: any = { x: 0, y: 0, z: 0 }; // values from controller inpout
     private rotation: any = { x: 0, y: 0, z: 0 };  // values from controller input
 
-    get getPosition() {
+    get PositionDelta() {
         let result = this.position;
         this.position = Vec3.ZERO;
         return result;
     }
-    get getRotation() {
+    get RotationDelta() {
         let result = this.rotation;
         this.rotation = Vec3.ZERO;
         return result;
@@ -49,17 +48,9 @@ export = class SpacemouseInput {
         Script.scriptEnding.connect(this, "destroy");
     }
 
-    private interval(): void {
-        const data: object[] = [this.position, this.rotation];
-        Messages.sendData(this.messageChannel, data);
-        return;
-    }
-
     private update(deltaTime: number): void {
         for (let input in SpacemouseInputs) {
             let result = Controller.getValue(Controller.Hardware.Spacemouse[input]);
-            // console.log(result.toString());
-            // console.log(input);
             if (result) { this.setInputValue(input, result); }
         }
     }
@@ -90,6 +81,6 @@ export = class SpacemouseInput {
     }
 
     private destroy(): void {
-        // this.doInput(false);
+        Script.update.disconnect(this, "update");
     }
-}
+};

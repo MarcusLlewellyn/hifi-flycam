@@ -1,11 +1,11 @@
-let FlycamController: any = Script.require("./lib/FlycamController.js?" + Date.now());
+let libFlycamController: any = Script.require("./lib/FlycamController.js?" + Date.now());
 
 class Main {
 
     private flycam: any;
 
     constructor() {
-        this.flycam = new FlycamController();
+        this.flycam = new libFlycamController();
         this.flycam.audioFollowCamera(true);
     }
 }
