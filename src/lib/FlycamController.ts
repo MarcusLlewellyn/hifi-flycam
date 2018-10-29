@@ -10,10 +10,10 @@ enum MessageType {
 export = class FlycamController {
 
     // constants
-    private readonly EPSILON = 0.001;
+    private readonly EPSILON = 0.01;
     private readonly TRANSLATE_SPEED = 2;   // position speed multiplier
     private readonly ROTATE_SPEED = 5;      // rotate speed is slower
-    private readonly UPDATE_TIME = 66;      // 30 fps
+    private readonly UPDATE_TIME = 1000;      // 30 fps
     private readonly PITCH_MINIMUM = -80;   // clamp pitch up
     private readonly PITCH_MAXIMUM = 80;    // clamp pitch down
 
@@ -29,7 +29,7 @@ export = class FlycamController {
     private inputTimer: any;
     private updateTimer: any;
 
-    private moveTime: number;
+    private startTime: number;
     private moveLength: number;
     private startPosition: any = { x: 0, y: 0, z: 0 };       // values from controller inpout
     private startRotation: any = { x: 0, y: 0, z: 0 };       // euler values from controller input
@@ -39,7 +39,7 @@ export = class FlycamController {
     constructor() {
         this.utility.isDebug = true;
         this.utility.debugLog("FCC!");
-
+        this.startTime = Date.now() / 1000;
         this.messageChannel  = this.input.MessageChannel;
         Messages.subscribe(this.messageChannel);
         Messages.messageReceived.connect(this, "onMessageReceived");
@@ -107,19 +107,25 @@ export = class FlycamController {
     }
 
     private interpolateCameraPosition(): any {
-        let distanceMoved: number = (Date.now() - this.moveTime) * this.TRANSLATE_SPEED;
+        let distanceMoved: number = ((Date.now() / 1000) - this.startTime) * this.TRANSLATE_SPEED;
         let fraction: number = distanceMoved / this.moveLength;
-        return this.utility.lerp(this.startPosition, this.targetPosition, fraction);
+        // return this.utility.lerp(this.startPosition, this.targetPosition, fraction);
+        this.utility.debugLog("fraction: " + fraction.toString());
+        this.utility.debugLog("lerp: " + JSON.stringify(Vec3.mix(this.startPosition, this.targetPosition, fraction)));
+        return Vec3.mix(this.startPosition, this.targetPosition, fraction);
     }
 
     private onInput(position: any, rotation: any): void {
+        this.utility.debugLog("onInput entered");
         this.startPosition = position;
         this.startRotation = rotation;
-        this.targetPosition = position; // Vec3.multiply(position, this.TRANSLATE_SPEED);
+        this.targetPosition = Vec3.sum(position, this.input.PositionDelta); // Vec3.multiply(position, this.TRANSLATE_SPEED);
         this.targetRotation = rotation; // Vec3.multiply(rotation, this.ROTATE_SPEED);
-        this.moveTime = Date.now();
+        this.moveLength = Vec3.distance(this.startPosition, this.targetPosition);
+        this.startTime = Date.now() / 1000;
 
         if (this.flycameraActive) {
+            this.utility.debugLog("updateCamera updateTimer starting");
             this.updateTimer = Script.setInterval(() => this.updateCamera(), this.UPDATE_TIME);
         }
     }
@@ -128,14 +134,17 @@ export = class FlycamController {
         // this.utility.debugLog("updateCamera fired");
         if (!this.flycameraActive) { return; }
         let lerpPosition = this.interpolateCameraPosition();
-        if (!Vec3.withinEpsilon(lerpPosition, this.targetPosition, this.EPSILON)) {
-            this.move(this.interpolateCameraPosition());
+        this.utility.debugLog("positions: " + JSON.stringify(this.startPosition) + " " + JSON.stringify(lerpPosition) + " " + JSON.stringify(this.targetPosition));
+        if (Vec3.withinEpsilon(lerpPosition, this.targetPosition, this.EPSILON)) {
+            this.utility.debugLog("epsilon");
+            this.startPosition = this.targetPosition;
+            this.targetPosition = Vec3.sum(this.startPosition, this.input.PositionDelta);
+            // this.moveTime = Date.now();
+        } else {
+            this.utility.debugLog("!epsilon");
+            this.move(lerpPosition);
             this.rotate(this.targetRotation);
             this.updateVisibleCamera();
-        } else {
-            this.startPosition = this.targetPosition;
-            this.targetPosition = this.input.PositionDelta;
-            this.moveTime = Date.now();
         }
     }
 
@@ -159,7 +168,7 @@ export = class FlycamController {
     }
 
     private toggleFlyCam(): void {
-        this.utility.debugLog("onFlyCam fired");
+        this.utility.debugLog("toggleFlyCam entered");
         Messages.messageReceived.disconnect(this, "onMessageReceived");
         if (this.flycameraActive) {
             Script.clearInterval(this.updateTimer);
@@ -180,7 +189,7 @@ export = class FlycamController {
             this.utility.sleep(1000);
             this.audioFollowCamera(true);
             // this.inputTimer = Script.setInterval(() => this.onInput(this.input.PositionDelta, this.input.RotationDelta), 33);
-            this.onInput(this.input.PositionDelta, this.input.RotationDelta);
+            this.onInput(Camera.position, Quat.safeEulerAngles(Camera.orientation));
         }
         Messages.messageReceived.connect(this, "onMessageReceived");
     }
