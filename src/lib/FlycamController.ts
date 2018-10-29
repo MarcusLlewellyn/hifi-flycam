@@ -13,7 +13,7 @@ export = class FlycamController {
     private readonly EPSILON = 0.001;
     private readonly TRANSLATE_SPEED = 2;   // position speed multiplier
     private readonly ROTATE_SPEED = 5;      // rotate speed is slower
-    // private readonly DELTA_TIME = 1 / 60;   // a pretend deltatime
+    private readonly UPDATE_TIME = 66;      // 30 fps
     private readonly PITCH_MINIMUM = -80;   // clamp pitch up
     private readonly PITCH_MAXIMUM = 80;    // clamp pitch down
 
@@ -101,39 +101,49 @@ export = class FlycamController {
         messageObject = undefined;
     }
 
-    private interpolateCamera(): any {
+    public audioFollowCamera(follows: boolean) {
+        if (follows) { MyAvatar.audioListenerMode = MyAvatar.audioListenerModeCamera; }
+        else { MyAvatar.audioListenerMode = MyAvatar.audioListenerModeHead; }
+    }
+
+    private interpolateCameraPosition(): any {
         let distanceMoved: number = (Date.now() - this.moveTime) * this.TRANSLATE_SPEED;
         let fraction: number = distanceMoved / this.moveLength;
         return this.utility.lerp(this.startPosition, this.targetPosition, fraction);
     }
 
     private onInput(position: any, rotation: any): void {
-        this.targetPosition = Vec3.multiply(position, this.TRANSLATE_SPEED);
-        this.targetRotation = Vec3.multiply(rotation, this.ROTATE_SPEED);
+        this.startPosition = position;
+        this.startRotation = rotation;
+        this.targetPosition = position; // Vec3.multiply(position, this.TRANSLATE_SPEED);
+        this.targetRotation = rotation; // Vec3.multiply(rotation, this.ROTATE_SPEED);
+        this.moveTime = Date.now();
 
-        if (this.flycameraActive) { this.updateCamera(); }
-    }
-
-    public audioFollowCamera(follows: boolean) {
-        if (follows) { MyAvatar.audioListenerMode = MyAvatar.audioListenerModeCamera; }
-        else { MyAvatar.audioListenerMode = MyAvatar.audioListenerModeHead; }
+        if (this.flycameraActive) {
+            this.updateTimer = Script.setInterval(() => this.updateCamera(), this.UPDATE_TIME);
+        }
     }
 
     private updateCamera(): void {
         // this.utility.debugLog("updateCamera fired");
         if (!this.flycameraActive) { return; }
-        this.move(this.interpolateCamera);
-        this.rotate(this.targetRotation);
-        this.updateVisibleCamera();
+        let lerpPosition = this.interpolateCameraPosition();
+        if (!Vec3.withinEpsilon(lerpPosition, this.targetPosition, this.EPSILON)) {
+            this.move(this.interpolateCameraPosition());
+            this.rotate(this.targetRotation);
+            this.updateVisibleCamera();
+        } else {
+            this.startPosition = this.targetPosition;
+            this.targetPosition = this.input.PositionDelta;
+            this.moveTime = Date.now();
+        }
     }
 
     private move(position: any): void {
         if (!this.flycameraActive) { return; }
-        this.targetPosition = Vec3.multiplyQbyV(Camera.orientation, this.targetPosition);
-        this.targetPosition = Vec3.sum(Camera.position, this.targetPosition);
-        Camera.setPosition(this.targetPosition);
-        // this.lastPosition = this.targetPosition;
-        this.targetPosition = Vec3.ZERO;
+        position = Vec3.multiplyQbyV(Camera.orientation, position);
+        position = Vec3.sum(Camera.position, position);
+        Camera.setPosition(position);
     }
 
     private rotate(rotation: any): void {
@@ -152,6 +162,7 @@ export = class FlycamController {
         this.utility.debugLog("onFlyCam fired");
         Messages.messageReceived.disconnect(this, "onMessageReceived");
         if (this.flycameraActive) {
+            Script.clearInterval(this.updateTimer);
             this.doVisibleCamera(false);
             Camera.setModeString(this.firstCameraMode);
             this.utility.debugLog(this.firstCameraMode);
@@ -159,7 +170,6 @@ export = class FlycamController {
             this.targetPosition = Vec3.ZERO;
             this.targetRotation = Vec3.ZERO;
             this.audioFollowCamera(false);
-            Script.clearInterval(this.inputTimer);
             this.utility.sleep(1000);
         } else {
             // this.firstCameraMode = Camera.getModeString();
@@ -169,7 +179,8 @@ export = class FlycamController {
             this.flycameraActive = true;
             this.utility.sleep(1000);
             this.audioFollowCamera(true);
-            this.inputTimer = Script.setInterval(() => this.onInput(this.input.PositionDelta, this.input.RotationDelta), 33);
+            // this.inputTimer = Script.setInterval(() => this.onInput(this.input.PositionDelta, this.input.RotationDelta), 33);
+            this.onInput(this.input.PositionDelta, this.input.RotationDelta);
         }
         Messages.messageReceived.connect(this, "onMessageReceived");
     }
