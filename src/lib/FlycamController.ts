@@ -54,13 +54,13 @@ export = class FlycamController {
                 position: Vec3.sum(Camera.position, Vec3.multiplyQbyV(Camera.orientation, { x: 0, y: 0, z: 1 })),
                 rotation: Camera.orientation,
                 dimensions: { x: 0.1, y: 0.1, z: 0.1 },
-                registrationPoint: { x: 0, y: 0, z: 0 },
+                registrationPoint: { x: 0.5, y: 0.5, z: 0.5 },
                 modelURL: "https://mikeybailey.org/hifi/Objects/CamBot_000.fbx#",
                 userData: "{\"grabbableKey\": {\"wantsTrigger\": false}}"
             }, true);
         } else {
             Entities.deleteEntity(this.cameraEntityID);
-            this.cameraEntityID = Uuid.NULL
+            this.cameraEntityID = Uuid.NULL;
         }
     }
 
