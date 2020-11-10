@@ -1,4 +1,3 @@
-
 export = class Utility {
 
     public isDebug = false;
@@ -20,7 +19,7 @@ export = class Utility {
         return Math.min(Math.max(min, value), max);
     }
 
-    public lerp(vector1: any, vector2: any , factor: number): any {
+    public lerp(vector1: any, vector2: any, factor: number): any {
         let result: any = { x: 0, y: 0, z: 0 };
         result.x = vector1.x + (vector2.x - vector1.x) * factor;
         result.y = vector1.y + (vector2.y - vector1.y) * factor;

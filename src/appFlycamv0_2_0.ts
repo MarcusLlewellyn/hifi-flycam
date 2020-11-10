@@ -6,7 +6,7 @@ class Main {
 
     constructor() {
         this.flycam = new libFlycamController();
-        this.flycam.audioFollowCamera(true);
+        // this.flycam.audioFollowCamera(true);
     }
 }
 

@@ -1,13 +1,13 @@
 {
     "compilerOptions": {
         "pretty": true,
-        "lib": ["es2015"],
+        "lib": ["es2015", "dom"],
         "target": "es5",
         "rootDir": ".",
 
         "declaration": false,
         "sourceMap": true,
-        "noEmitOnError": true,
+        "noEmitOnError": false,
 
         "strictNullChecks": true,
         "noImplicitAny": true,
